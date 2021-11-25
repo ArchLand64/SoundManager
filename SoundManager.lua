@@ -14,7 +14,6 @@ local SettingsInfo = require(game.ReplicatedStorage.SharedMods.SettingsInfo)
 local SettingKeys = SettingsInfo.SettingKeys
 local SoundService = game.SoundService
 local IndexGenerator = Random.new()
-local test: number = false
 
 --types
 export type SFXConfig = {
