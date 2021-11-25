@@ -17,7 +17,9 @@ local IndexGenerator = Random.new()
 
 --types
 export type SFXConfig = {
+	--true to allow only one instance of the sound to be played; otherwise false;
 	Debounce: boolean?;
+	--true if it should yield until the sound effect finishes playing; otherwise false;
 	YieldForEnd: boolean?;
 	--custom playback speed in range (0, 5]; (ideal range, other values may not hard error);
 	CustomSpeed: number?;
