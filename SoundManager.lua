@@ -51,11 +51,6 @@ local SFXKeys = {
 	Switch = SFXGroup.Switch;
 	Error = SFXGroup.Error;
 	Success = SFXGroup.Success;
-	DollSpin = SFXGroup.DollSpin;
-	DollTalk = SFXGroup.DollTalk;
-	LightGunShot = SFXGroup.LightGunShot;
-	HeavyGunShot = SFXGroup.HeavyGunShot;
-	ClockTick = SFXGroup.ClockTick;
 	--sound folders that can play one of multiple sound effects randomly;
 	KnifeSwing = SFXGroup.KnifeSwing;
 	GlassShatter = SFXGroup.GlassShatter;
