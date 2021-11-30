@@ -6,12 +6,7 @@ This client script handles playback of all music/sfx in the game.
 --[[
 ==========================Private Variables==========================
 ]]--
---mods
-local SettingsManager = require(game.ReplicatedStorage.ClientMods.SettingsManager)
-local SettingsInfo = require(game.ReplicatedStorage.SharedMods.SettingsInfo)
-
 --other stuff
-local SettingKeys = SettingsInfo.SettingKeys
 local SoundService = game.SoundService
 local IndexGenerator = Random.new()
 
@@ -91,14 +86,6 @@ for _, obj in ipairs(SoundService:GetDescendants()) do
 		end
 	end
 end
-
---connect to settings; newVolume range is [0, 1]
-SettingsManager.AddSettingCallback(SettingKeys.MusicVolume, function(newVolume: number)
-	MusicGroup.Volume = newVolume / 2
-end)
-SettingsManager.AddSettingCallback(SettingKeys.SFXVolume, function(newVolume: number)
-	SFXGroup.Volume = newVolume / 2
-end)
 
 --plays the given music object globally; if no music object is given then no music plays;
 local function SetActiveMusic(musicObject: Sound?)
