@@ -1,12 +1,14 @@
 --!strict
 --[[
-This client script handles playback of all music/sfx in the game.
+This client script handles the playback of all music/sfx in the game.
 ]]--
 
 --[[
 ==========================Private Variables==========================
 ]]--
+
 --other stuff
+local ContentProvider = game:GetService("ContentProvider")
 local SoundService = game.SoundService
 local IndexGenerator = Random.new()
 
@@ -20,6 +22,8 @@ export type SFXConfig = {
 	CustomSpeed: number?;
 	--what part to play the sound from; otherwise plays globally;
 	SoundLocation: BasePart?;
+	--true if it should play forever (stop with StopSFX); otherwise false;
+	Looped: boolean?;
 }
 
 --constants
@@ -30,57 +34,22 @@ local SFX_DEFAULT_CONFIG: SFXConfig = {
 
 --sound groups
 local MusicGroup = SoundService.MusicGroup
+local VoiceGroup = SoundService.VoiceGroup
 local SFXGroup = SoundService.SFXGroup
 
 --sound objects
-local ActiveSong = Instance.new("Sound", MusicGroup)
+local ActiveSong = Instance.new("Sound")
 ActiveSong.Name = "_ActiveSong"
 ActiveSong.Volume = 1
 ActiveSong.Looped = true
+ActiveSong.Parent = MusicGroup
 
-local MusicKeys = {
-	LobbyMusic = MusicGroup.LobbyMusic;
-	GlassSong = MusicGroup.GlassSong;
-	FinalSong = MusicGroup.FinalSong;
-}
-
---[SFXName] = sound object OR folder with sound objects in it;
-local SFXKeys = {
-	--sound instances that can only play a single sound;
-	Click = SFXGroup.Click;
-	Switch = SFXGroup.Switch;
-	Error = SFXGroup.Error;
-	Success = SFXGroup.Success;
-	--sound folders that can play one of multiple sound effects randomly;
-	KnifeSwing = SFXGroup.KnifeSwing;
-	GlassShatter = SFXGroup.GlassShatter;
-	MaleScream = SFXGroup.MaleScream;
-	FemaleScream = SFXGroup.FemaleScream;
-}
-
---[Instance object] = bool playing;
-local SFXPlaying: {[Instance]: boolean} = {}
-
+--[Instance soundKey] = Sound if playing; otherwise nil;
+local SoundsPlaying: {[Instance]: Sound?} = {}
 
 --[[
 ==========================Private Functions==========================
 ]]--
-
---init playing map
-for _, sfxKey in pairs(SFXKeys) do
-	SFXPlaying[sfxKey] = false
-end
-
---automatically assign all sound object a sound group;
-for _, obj in ipairs(SoundService:GetDescendants()) do
-	if obj:IsA("Sound") then
-		if obj.Parent:IsA("Folder") then
-			obj.SoundGroup = obj.Parent.Parent
-		else
-			obj.SoundGroup = obj.Parent
-		end
-	end
-end
 
 --plays the given music object globally; if no music object is given then no music plays;
 local function SetActiveMusic(musicObject: Sound?)
@@ -92,7 +61,8 @@ local function SetActiveMusic(musicObject: Sound?)
 	end
 end
 
-local function GetRandomChildSFX(sfxFolder: Instance): Sound?
+--returns a random child sound of the given folder;
+local function GetRandomChildSound(sfxFolder: Instance): Sound?
 	local sfxChildren = sfxFolder:GetChildren()
 	local randomSound = sfxChildren[IndexGenerator:NextInteger(1, #sfxChildren)]
 
@@ -103,22 +73,35 @@ local function GetRandomChildSFX(sfxFolder: Instance): Sound?
 	end
 end
 
+--immediately stop the given sfx and dereference it;
+local function StopSFX(sfxKey: Instance)
+	local soundToStop = SoundsPlaying[sfxKey]
+	if soundToStop then
+		--Sound:Stop() only triggers .Stopped;
+		soundToStop:Stop()
+		--remove the sound from SoundsPlaying
+		SoundsPlaying[sfxKey] = nil
+		--destroy the cloned sound instance
+		soundToStop:Destroy()
+	end
+end
+
 local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 	if not config then
 		--set default config if one is not given;
 		config = SFX_DEFAULT_CONFIG
 	end
 	
-	--temporary... roblox linter should be smart enough to detect config will always exist;
+	--temporary... any linter should be smart enough to detect that a config will always exist;
 	if config then
-		if config.Debounce and SFXPlaying[sfxKey] then
+		if config.Debounce and SoundsPlaying[sfxKey] then
 			--the sound is already playing; do nothing;
 			return
 		end
 
 		local newSFX: Sound? = nil
 		if sfxKey:IsA("Folder") then
-			newSFX = GetRandomChildSFX(sfxKey)
+			newSFX = GetRandomChildSound(sfxKey)
 		elseif sfxKey:IsA("Sound") then
 			newSFX = sfxKey
 		end
@@ -138,13 +121,17 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 				end
 				newSFX.PlaybackSpeed = customPlayRate
 			end
+			
+			if config.Looped then	
+				newSFX.Looped = true
+			end
 
 			newSFX.Ended:Connect(function()
-				SFXPlaying[sfxKey] = false
+				SoundsPlaying[sfxKey] = nil
 				newSFX:Destroy()
 			end)
 
-			SFXPlaying[sfxKey] = true
+			SoundsPlaying[sfxKey] = newSFX
 			newSFX.Parent = config.SoundLocation or SFXGroup
 			newSFX:Play()
 
@@ -157,15 +144,65 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 	end
 end
 
+local function OnCharacterAdded(newChar: Model)
+	local charHRP = newChar:FindFirstChild("HumanoidRootPart")
+	if charHRP then
+		for _, obj in ipairs(charHRP:GetChildren()) do
+			if obj:IsA("Sound") then
+				--add character sounds to the sfx group to fix their sound
+				obj.SoundGroup = SFXGroup
+			end
+		end
+	end
+end
+
+local function OnPlayerAdded(newPlayer: Player)
+	newPlayer.CharacterAdded:Connect(OnCharacterAdded)
+
+	local plyrChar = newPlayer.Character
+	if plyrChar then
+		OnCharacterAdded(plyrChar)
+	end
+end
+
+local function Init()
+	--automatically assign all sound object a sound group and preload them;
+	local soundsFound: {Sound} = {}
+	for _, obj in ipairs(SoundService:GetDescendants()) do
+		if obj:IsA("Sound") then
+			table.insert(soundsFound, obj)
+
+			if obj.Parent:IsA("Folder") then
+				obj.SoundGroup = obj.Parent.Parent
+			else
+				obj.SoundGroup = obj.Parent
+			end
+		end
+	end
+	task.spawn(ContentProvider.PreloadAsync, ContentProvider, soundsFound)
+
+	--fix all player's sound's SoundGroups
+	game.Players.PlayerAdded:Connect(OnPlayerAdded)
+	for _, plyr in ipairs(game.Players:GetPlayers()) do
+		OnPlayerAdded(plyr)
+	end
+end
+
+Init()
+
 --[[
 ==========================Public Interface==========================
 ]]--
 
-local SoundManager = {
-	MusicKeys = MusicKeys;
-	SFXKeys = SFXKeys;
+local SoundController = {
+	--objects
+	MusicGroup = MusicGroup;
+	VoiceGroup = VoiceGroup;
+	SFXGroup = SFXGroup;
+	--functions
 	SetActiveMusic = SetActiveMusic;
 	PlaySFX = PlaySFX;
+	StopSFX = StopSFX;
 }
 
-return SoundManager
+return SoundController
