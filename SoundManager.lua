@@ -98,7 +98,7 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 			--the sound is already playing; do nothing;
 			return
 		end
-
+		
 		local newSFX: Sound? = nil
 		if sfxKey:IsA("Folder") then
 			newSFX = GetRandomChildSound(sfxKey)
@@ -145,11 +145,18 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 end
 
 local function OnCharacterAdded(newChar: Model)
-	local charHRP = newChar:FindFirstChild("HumanoidRootPart")
+	local charHRP = newChar:WaitForChild("HumanoidRootPart", 1)
 	if charHRP then
+		charHRP.ChildAdded:Connect(function(newChild)
+			if newChild:IsA("Sound") then
+				--add character sounds to the sfx group to fix their volume
+				newChild.SoundGroup = SFXGroup
+			end
+		end)
+
 		for _, obj in ipairs(charHRP:GetChildren()) do
 			if obj:IsA("Sound") then
-				--add character sounds to the sfx group to fix their sound
+				--add character sounds to the sfx group to fix their volume
 				obj.SoundGroup = SFXGroup
 			end
 		end
