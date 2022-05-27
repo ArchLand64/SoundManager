@@ -34,7 +34,6 @@ local SFX_DEFAULT_CONFIG: SFXConfig = {
 
 --sound groups
 local MusicGroup = SoundService.MusicGroup
-local VoiceGroup = SoundService.VoiceGroup
 local SFXGroup = SoundService.SFXGroup
 
 --sound objects
@@ -204,7 +203,6 @@ Init()
 local SoundController = {
 	--objects
 	MusicGroup = MusicGroup;
-	VoiceGroup = VoiceGroup;
 	SFXGroup = SFXGroup;
 	--functions
 	SetActiveMusic = SetActiveMusic;
