@@ -1,42 +1,38 @@
 --!strict
 --[[
 This client script handles the playback of all music/sfx in the game.
-]]--
+]]
 
---[[
-==========================Private Variables==========================
-]]--
-
---other stuff
+--// stuff
 local ContentProvider = game:GetService("ContentProvider")
-local SoundService = game.SoundService
+local SoundService = game:GetService("SoundService")
 local IndexGenerator = Random.new()
 
---types
+--// types
 export type SFXConfig = {
 	--true to allow only one instance of the sound to be played; otherwise false;
-	Debounce: boolean?;
+	Debounce: boolean?,
 	--true if it should yield until the sound effect finishes playing; otherwise false;
-	YieldForEnd: boolean?;
+	YieldForEnd: boolean?,
 	--custom playback speed in range (0, 5]; (ideal range, other values may not hard error);
-	CustomSpeed: number?;
+	CustomSpeed: number?,
 	--what part to play the sound from; otherwise plays globally;
-	SoundLocation: BasePart?;
+	SoundLocation: BasePart?,
 	--true if it should play forever (stop with StopSFX); otherwise false;
-	Looped: boolean?;
+	Looped: boolean?,
 }
 
---constants
+--// constants
 local SFX_DEFAULT_CONFIG: SFXConfig = {
-	Debounce = false;
-	YieldForEnd = false;
+	Debounce = false,
+	YieldForEnd = false,
 }
 
---sound groups
+--// sound groups
 local MusicGroup = SoundService.MusicGroup
 local SFXGroup = SoundService.SFXGroup
 
---sound objects
+--// sound objects
 local ActiveSong = Instance.new("Sound")
 ActiveSong.Name = "_ActiveSong"
 ActiveSong.Volume = 1
@@ -44,11 +40,9 @@ ActiveSong.Looped = true
 ActiveSong.Parent = MusicGroup
 
 --[Instance soundKey] = Sound if playing; otherwise nil;
-local SoundsPlaying: {[Instance]: Sound?} = {}
+local SoundsPlaying: { [Instance]: Sound? } = {}
 
---[[
-==========================Private Functions==========================
-]]--
+--#region Private Functions
 
 --plays the given music object globally; if no music object is given then no music plays;
 local function SetActiveMusic(musicObject: Sound?)
@@ -90,14 +84,14 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 		--set default config if one is not given;
 		config = SFX_DEFAULT_CONFIG
 	end
-	
+
 	--temporary... any linter should be smart enough to detect that a config will always exist;
 	if config then
 		if config.Debounce and SoundsPlaying[sfxKey] then
 			--the sound is already playing; do nothing;
 			return
 		end
-		
+
 		local newSFX: Sound? = nil
 		if sfxKey:IsA("Folder") then
 			newSFX = GetRandomChildSound(sfxKey)
@@ -120,8 +114,8 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 				end
 				newSFX.PlaybackSpeed = customPlayRate
 			end
-			
-			if config.Looped then	
+
+			if config.Looped then
 				newSFX.Looped = true
 			end
 
@@ -135,7 +129,13 @@ local function PlaySFX(sfxKey: Instance, config: SFXConfig?)
 			newSFX:Play()
 
 			if config.YieldForEnd then
-				newSFX.Ended:Wait()
+				local timeDivisor = config.CustomSpeed or 1
+				local sfxTimeLength = newSFX.TimeLength / timeDivisor
+				if sfxTimeLength > 1 / 60 then
+					task.wait(sfxTimeLength)
+				else
+					task.wait()
+				end
 			end
 		else
 			warn("PlaySFX: Missing sound")
@@ -173,7 +173,7 @@ end
 
 local function Init()
 	--automatically assign all sound object a sound group and preload them;
-	local soundsFound: {Sound} = {}
+	local soundsFound: { Sound } = {}
 	for _, obj in ipairs(SoundService:GetDescendants()) do
 		if obj:IsA("Sound") then
 			table.insert(soundsFound, obj)
@@ -194,20 +194,18 @@ local function Init()
 	end
 end
 
-Init()
+--#endregion
 
---[[
-==========================Public Interface==========================
-]]--
+Init()
 
 local SoundController = {
 	--objects
-	MusicGroup = MusicGroup;
-	SFXGroup = SFXGroup;
+	MusicGroup = MusicGroup,
+	SFXGroup = SFXGroup,
 	--functions
-	SetActiveMusic = SetActiveMusic;
-	PlaySFX = PlaySFX;
-	StopSFX = StopSFX;
+	SetActiveMusic = SetActiveMusic,
+	PlaySFX = PlaySFX,
+	StopSFX = StopSFX,
 }
 
 return SoundController
